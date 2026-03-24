@@ -4,7 +4,7 @@ import com.inditex.priceservice.domain.model.vo.BrandId;
 import com.inditex.priceservice.domain.model.vo.Money;
 import com.inditex.priceservice.domain.model.vo.ProductId;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
@@ -12,8 +12,9 @@ import java.time.LocalDateTime;
  * Aggregate Root Patrón DDD.
  * Entidad principal del modelo de dominio de Precios.
  * Agrupa los distintos Value Objects.
+ * Inmutable: sin setters para preservar integridad del dominio.
  */
-@Data
+@Getter
 @Builder
 public class Price {
     private BrandId brandId;

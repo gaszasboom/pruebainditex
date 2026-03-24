@@ -6,23 +6,28 @@ spring:
     driverClassName: org.h2.Driver
     username: sa
     password: sa
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
   jpa:
+    open-in-view: false
     database-platform: org.hibernate.dialect.H2Dialect
     defer-datasource-initialization: true
     hibernate:
       ddl-auto: none
-    show-sql: true
+    show-sql: false
   jackson:
     property-naming-strategy: SNAKE_CASE
   h2:
     console:
-      enabled: true
-      path: /h2-console
+      enabled: false
   mvc:
     problemdetails:
       enabled: true
 
-# Actuator configuration for monitoring
 management:
   endpoints:
     web:
@@ -34,3 +39,15 @@ management:
   health:
     db:
       enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  jpa:
+    show-sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console

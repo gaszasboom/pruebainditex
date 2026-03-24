@@ -12,20 +12,7 @@
 	<artifactId>price-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>price-service</name>
-	<description/>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
+	<description>Microservicio de consulta de tarifas de precios con Arquitectura Hexagonal y DDD</description>
 	<properties>
 		<java.version>17</java.version>
 	</properties>

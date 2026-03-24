@@ -9,7 +9,18 @@ En la base de datos de comercio electrónico disponemos de una tabla `PRICES` qu
 El objetivo principal de este microservicio es consultar dicha tabla y proveer un endpoint REST que, al recibir tres parámetros de entrada (fecha de aplicación, identificador de producto e identificador de cadena), sea capaz de determinar unívocamente el precio final aplicable y la tarifa correspondiente. Para ello, debe resolver posibles colisiones y solapamientos de fechas mediante una regla de prioridad (a mayor prioridad, prevalece la tarifa).
 
 **Resolución Técnica:**
-El conflicto de solapamiento y obtención del precio se resuelve a nivel de persistencia de manera eficiente. En el *Adapter* de base de datos (`SpringDataPriceRepository`), mediante una `@Query` de JPQL, se realiza un filtrado por producto, cadena y fechas (`:applicationDate BETWEEN p.startDate AND p.endDate`), y posteriormente se ordena el resultado por la prioridad de forma descendente, delegando a la base de datos que devuelva únicamente el registro más prioritario (`ORDER BY p.priority DESC LIMIT 1`).
+El conflicto de solapamiento y obtención del precio se resuelve a nivel de persistencia de manera eficiente. En el *Adapter* de base de datos (`SpringDataPriceRepository`), mediante una query SQL nativa, se realiza un filtrado por producto, cadena y fechas (`:applicationDate BETWEEN START_DATE AND END_DATE`), y posteriormente se ordena el resultado por la prioridad de forma descendente, delegando a la base de datos que devuelva únicamente el registro más prioritario (`ORDER BY PRIORITY DESC LIMIT 1`).
+
+**Decisión de diseño — Eficiencia vs Escalabilidad:**
+Existe un trade-off consciente en esta implementación. El enfoque alternativo "más escalable" sería traer todos los precios aplicables a la capa de dominio y resolver la prioridad en Java:
+```java
+// Enfoque escalable: lógica de prioridad en el dominio
+List<Price> candidates = repository.findAllApplicable(date, productId, brandId);
+return candidates.stream().max(Comparator.comparing(Price::getPriority));
+```
+Esto mantiene la regla de negocio en el dominio (más testeable y flexible ante cambios), pero implica transferir N registros desde la BD para quedarse con 1.
+
+Se ha optado deliberadamente por el enfoque eficiente: delegar la selección a la BD con `LIMIT 1`, de forma que solo viaja un registro por petición. Esto reduce latencia, consumo de memoria y carga de red, a costa de que la regla de prioridad queda expresada en SQL en lugar de en el dominio. Esta decisión responde a un requisito explícito del cliente, que prioriza la eficiencia por encima de la escalabilidad de la lógica de negocio.
 
 ## 2. Arquitectura Hexagonal y SOLID
 El proyecto está estructurado estrictamente en tres capas para garantizar el Principio de Inversión de Dependencias (SOLID):
@@ -27,22 +38,38 @@ Se han aplicado principios de DDD para modelar el núcleo de negocio rico:
 **GET** `/api/v1/prices`
 
 **Query Parameters:**
-- `applicationDate`: Fecha en formato ISO-8601 (ej. `2020-06-14T10:00:00`)
-- `productId`: ID numérico del producto (ej. `35455`)
-- `brandId`: ID numérico de la cadena (ej. `1` para ZARA)
+- `application-date`: Fecha en formato ISO-8601 (ej. `2020-06-14T10:00:00`)
+- `product-id`: ID numérico del producto (ej. `35455`)
+- `brand-id`: ID numérico de la cadena (ej. `1` para ZARA)
 
 **Ejemplo de Petición cURL:**
 ```bash
 curl -G "http://localhost:8080/api/v1/prices" \
-  --data-urlencode "applicationDate=2020-06-14T10:00:00" \
-  --data-urlencode "productId=35455" \
-  --data-urlencode "brandId=1"
+  --data-urlencode "application-date=2020-06-14T10:00:00" \
+  --data-urlencode "product-id=35455" \
+  --data-urlencode "brand-id=1"
 ```
 
 ### Comprobación de Estado (Health Check)
-**GET** `/health`
+**GET** `/actuator/health`
 
-Este endpoint ligero devuelve un estado HTTP `204 No Content` para verificar rápidadmente que la aplicación está levantada y respondiendo (comúnmente usado como *Liveness Probe* de Kubernetes o Docker). Nota: También existe el healthcheck completo de dependencias en `/actuator/health`.
+Devuelve el estado de la aplicación y sus dependencias (incluida la conexión a base de datos H2).
+
+**Ejemplo de Petición cURL:**
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+**Ejemplo de Respuesta:**
+```json
+{
+  "status": "UP",
+  "components": {
+    "db": { "status": "UP" },
+    "diskSpace": { "status": "UP" }
+  }
+}
+```
 
 ### Gestión de Errores (RFC 9457)
 La API implementa el estándar [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html) (Problem Details for HTTP APIs) para estandarizar las respuestas de error devueltas a los clientes.
@@ -71,7 +98,7 @@ El proyecto incluye:
 
 ## 6. Monitorización (Actuator)
 Se ha integrado Spring Boot Actuator para la monitorización de la salud de la aplicación y la exposición de métricas básicas:
-- **Health Check**: `GET /localhost:8080/actuator/health` (Incluye detalle de la conexión a Base de datos H2).
+- **Health Check**: `GET http://localhost:8080/actuator/health` (Incluye detalle de la conexión a Base de datos H2).
 ## 7. Documentación Interactiva (Swagger / OpenAPI)
 Para facilitar las pruebas y la consulta de la especificación de la API, se ha incluido **Swagger UI**.
 Una vez iniciada la aplicación, la documentación interactiva está disponible en:

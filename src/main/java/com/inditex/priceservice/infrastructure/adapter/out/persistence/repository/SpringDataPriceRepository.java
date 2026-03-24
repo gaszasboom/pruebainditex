@@ -12,11 +12,16 @@ import java.util.Optional;
 @Repository
 public interface SpringDataPriceRepository extends JpaRepository<PriceEntity, Long> {
 
-    @Query(value = "SELECT p FROM PriceEntity p " +
-            "WHERE p.productId = :productId " +
-            "AND p.brandId = :brandId " +
-            "AND :applicationDate BETWEEN p.startDate AND p.endDate " +
-            "ORDER BY p.priority DESC LIMIT 1")
+    /**
+     * Query nativa SQL para máxima eficiencia.
+     * Delega la selección por prioridad a la BD con LIMIT 1, evitando carga de múltiples registros.
+     */
+    @Query(value = "SELECT * FROM PRICES " +
+            "WHERE PRODUCT_ID = :productId " +
+            "AND BRAND_ID = :brandId " +
+            "AND :applicationDate BETWEEN START_DATE AND END_DATE " +
+            "ORDER BY PRIORITY DESC LIMIT 1",
+            nativeQuery = true)
     Optional<PriceEntity> findApplicablePrice(
             @Param("applicationDate") LocalDateTime applicationDate,
             @Param("productId") Integer productId,

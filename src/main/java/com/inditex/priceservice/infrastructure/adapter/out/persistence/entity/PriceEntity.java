@@ -15,7 +15,9 @@ import java.time.LocalDateTime;
  * Aisla la base de datos del modelo de Dominio puro.
  */
 @Entity
-@Table(name = "PRICES")
+@Table(name = "PRICES", indexes = {
+        @Index(name = "idx_price_query", columnList = "BRAND_ID, PRODUCT_ID, START_DATE, END_DATE")
+})
 @Data
 @Builder
 @NoArgsConstructor
